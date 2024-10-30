@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Input } from "../../components/ui/input";
-import { Textarea } from "../../components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Globe, DollarSign } from "lucide-react";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,7 +16,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../components/ui/form";
+} from "@/components/ui/form";
 import { useRouter } from "next/navigation";
 
 const formSchema = z.object({
@@ -26,6 +26,9 @@ const formSchema = z.object({
     .string()
     .min(10, { message: "Please provide more details about your vision" }),
 });
+
+import { DomainOffersDO } from "@/lib/durable-objects";
+export { DomainOffersDO };
 
 export default function Page() {
   const router = useRouter();
@@ -74,21 +77,18 @@ export default function Page() {
       return;
     }
     try {
-      const response = await fetch(
-        "https://durable-object-starter.noxford1.workers.dev?domain=agi-2025.com",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer YELLOW_BEAR_SUN",
-          },
-          body: JSON.stringify({
-            email: _values.name, // Note: You might want to add a separate email field
-            amount: Number(_values.offer),
-            description: _values.description,
-          }),
-        }
-      );
+      const response = await fetch("/api/offers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer YELLOW_BEAR_SUN",
+        },
+        body: JSON.stringify({
+          email: _values.name, // Note: You might want to add a separate email field
+          amount: Number(_values.offer),
+          description: _values.description,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
