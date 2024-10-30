@@ -1,7 +1,9 @@
-import { useState } from "react";
+"use client";
+
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Input } from "../components/ui/input";
-import { Textarea } from "../components/ui/textarea";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
 import { Globe, DollarSign } from "lucide-react";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,7 +16,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../components/ui/form";
+} from "../../components/ui/form";
+import { useRouter } from "next/navigation";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -24,7 +27,9 @@ const formSchema = z.object({
     .min(10, { message: "Please provide more details about your vision" }),
 });
 
-export default function Component() {
+export default function Page() {
+  const router = useRouter();
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -39,13 +44,69 @@ export default function Component() {
     "error" | "expired" | "solved" | null
   >(null);
 
+  const [escCount, setEscCount] = useState(0);
+  const [lastEscTime, setLastEscTime] = useState(0);
+
+  // Add ESC key handler
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        const currentTime = Date.now();
+
+        // Check if this is a double ESC press within 500ms
+        if (currentTime - lastEscTime < 500) {
+          router.push("/admin");
+        } else {
+          setEscCount((prev) => prev + 1);
+        }
+
+        setLastEscTime(currentTime);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [router, lastEscTime]);
+
   const onSubmit = async (_values: z.infer<typeof formSchema>) => {
     if (turnstileStatus !== "solved" || !turnstileToken) {
       alert("Please complete the verification");
       return;
     }
+    try {
+      const response = await fetch(
+        "https://durable-object-starter.noxford1.workers.dev?domain=agi-2025.com",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer YELLOW_BEAR_SUN",
+          },
+          body: JSON.stringify({
+            email: _values.name, // Note: You might want to add a separate email field
+            amount: Number(_values.offer),
+            description: _values.description,
+          }),
+        }
+      );
 
-    // ... rest of your submit logic ...
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Offer submitted successfully:", result);
+
+      // Clear form
+      form.reset();
+      setTurnstileToken(null);
+
+      // Show success message
+      alert("Your offer has been submitted successfully!");
+    } catch (error) {
+      console.error("Error submitting offer:", error);
+      alert("Failed to submit offer. Please try again.");
+    }
   };
 
   return (
