@@ -1,14 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Globe, DollarSign } from "lucide-react";
-import { Turnstile } from "@marsidev/react-turnstile";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { Turnstile } from "@marsidev/react-turnstile";
+import {
+  Globe,
+  DollarSign,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -17,62 +25,57 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  offer: z.string().min(1, { message: "Please enter an offer amount" }),
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Please enter a valid email address"),
+  offer: z.string().min(1, "Please enter an offer amount"),
   description: z
     .string()
-    .min(10, { message: "Please provide more details about your vision" }),
+    .min(10, "Please provide more details about your vision")
+    .max(500, "Description must be less than 500 characters"),
 });
 
-export default function Page() {
-  const router = useRouter();
+type FormValues = z.infer<typeof formSchema>;
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      offer: "",
-      description: "",
-    },
-  });
-
+export default function Component() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileStatus, setTurnstileStatus] = useState<
     "error" | "expired" | "solved" | null
   >(null);
 
-  const [escCount, setEscCount] = useState(0);
-  const [lastEscTime, setLastEscTime] = useState(0);
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      offer: "",
+      description: "",
+    },
+  });
 
-  // Add ESC key handler
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        const currentTime = Date.now();
-
-        // Check if this is a double ESC press within 500ms
-        if (currentTime - lastEscTime < 500) {
-          router.push("/admin");
-        } else {
-          setEscCount((prev) => prev + 1);
-        }
-
-        setLastEscTime(currentTime);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [router, lastEscTime]);
-
-  const onSubmit = async (_values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: FormValues) => {
     if (turnstileStatus !== "solved" || !turnstileToken) {
-      alert("Please complete the verification");
+      form.setError("root", { message: "Please complete the verification" });
       return;
     }
+
+    setIsSubmitting(true);
+    setSubmitStatus("idle");
+
     try {
       const response = await fetch("/api/offers", {
         method: "POST",
@@ -81,138 +84,212 @@ export default function Page() {
           Authorization: "Bearer YELLOW_BEAR_SUN",
         },
         body: JSON.stringify({
-          email: _values.name, // Note: You might want to add a separate email field
-          amount: Number(_values.offer),
-          description: _values.description,
+          ...values,
+          amount: Number(values.offer),
           token: turnstileToken,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error();
 
-      const result = await response.json();
-      console.log("Offer submitted successfully:", result);
-
-      // Clear form
+      setSubmitStatus("success");
       form.reset();
       setTurnstileToken(null);
-
-      // Show success message
-      alert("Your offer has been submitted successfully!");
     } catch (error) {
-      console.error("Error submitting offer:", error);
-      alert("Failed to submit offer. Please try again.");
+      setSubmitStatus("error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4 md:p-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-800"
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-lg"
       >
-        <div className="p-8">
-          <div className="flex items-center justify-center mb-8">
-            <Globe className="w-12 h-12 text-purple-400" />
-          </div>
-          <h1 className="text-4xl font-bold text-center mb-3 bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">
-            Make Your Offer
-          </h1>
-          <p className="text-slate-400 text-center mb-8">
-            Secure agi-2025.com with a compelling offer
-          </p>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-slate-200">Your Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        className="bg-slate-800/50 border-slate-700 text-slate-200 focus:ring-purple-400 focus:border-purple-400"
-                        placeholder="John Doe"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="offer"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-slate-200">
-                      Your Offer (USD)
-                    </FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                        <Input
-                          {...field}
-                          type="number"
-                          className="pl-10 bg-slate-800/50 border-slate-700 text-slate-200 focus:ring-purple-400 focus:border-purple-400"
-                          placeholder="5000"
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-slate-200">
-                      How will you use this domain?
-                    </FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        className="bg-slate-800/50 border-slate-700 text-slate-200 focus:ring-purple-400 focus:border-purple-400"
-                        placeholder="Share your vision for agi-2025.com..."
-                        rows={4}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex justify-center">
-                <Turnstile
-                  siteKey="0x4AAAAAAAylKuDyLZriK5lA"
-                  onError={() => setTurnstileStatus("error")}
-                  onExpire={() => setTurnstileStatus("expired")}
-                  onSuccess={(token) => {
-                    setTurnstileStatus("solved");
-                    setTurnstileToken(token);
-                  }}
-                />
-              </div>
-
-              <motion.button
-                type="submit"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg shadow-lg hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-opacity-75 transition-all duration-300"
+        <Card className="backdrop-blur-xl bg-slate-900/80 border-slate-800">
+          <CardHeader>
+            <div className="flex justify-center mb-4">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
               >
-                Submit Offer
-              </motion.button>
-            </form>
-          </Form>
-        </div>
+                <Globe className="w-12 h-12 text-purple-400" />
+              </motion.div>
+            </div>
+            <CardTitle className="text-4xl font-bold text-center bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">
+              Make Your Offer
+            </CardTitle>
+            <CardDescription className="text-slate-400 text-center">
+              Secure agi-2025.com with a compelling offer
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AnimatePresence mode="wait">
+              {submitStatus === "success" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-6"
+                >
+                  <Alert className="border-green-500/20 bg-green-500/10">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <AlertTitle className="text-green-500">Success!</AlertTitle>
+                    <AlertDescription className="text-green-400">
+                      Your offer has been submitted successfully.
+                    </AlertDescription>
+                  </Alert>
+                </motion.div>
+              )}
+
+              {submitStatus === "error" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-6"
+                >
+                  <Alert className="border-red-500/20 bg-red-500/10">
+                    <AlertCircle className="h-4 w-4 text-red-500" />
+                    <AlertTitle className="text-red-500">Error</AlertTitle>
+                    <AlertDescription className="text-red-400">
+                      Failed to submit offer. Please try again.
+                    </AlertDescription>
+                  </Alert>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-6"
+              >
+                <div className="grid gap-6 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-slate-200">
+                          Your Name
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            className="bg-slate-800/50 border-slate-700 text-slate-200 focus:ring-purple-400 focus:border-purple-400"
+                            placeholder="John Doe"
+                          />
+                        </FormControl>
+                        <FormMessage className="text-red-400" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-slate-200">
+                          Email Address
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="email"
+                            className="bg-slate-800/50 border-slate-700 text-slate-200 focus:ring-purple-400 focus:border-purple-400"
+                            placeholder="john@example.com"
+                          />
+                        </FormControl>
+                        <FormMessage className="text-red-400" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="offer"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-200">
+                        Your Offer (USD)
+                      </FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                          <Input
+                            {...field}
+                            type="number"
+                            min="0"
+                            step="100"
+                            className="pl-10 bg-slate-800/50 border-slate-700 text-slate-200 focus:ring-purple-400 focus:border-purple-400"
+                            placeholder="5000"
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage className="text-red-400" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-200">
+                        How will you use this domain?
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          className="bg-slate-800/50 border-slate-700 text-slate-200 focus:ring-purple-400 focus:border-purple-400 min-h-[120px]"
+                          placeholder="Share your vision for agi-2025.com..."
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-400" />
+                      <p className="text-xs text-slate-400 mt-2">
+                        {field.value.length}/500 characters
+                      </p>
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-center">
+                  <Turnstile
+                    siteKey="0x4AAAAAAAylKuDyLZriK5lA"
+                    onError={() => setTurnstileStatus("error")}
+                    onExpire={() => setTurnstileStatus("expired")}
+                    onSuccess={(token) => {
+                      setTurnstileStatus("solved");
+                      setTurnstileToken(token);
+                    }}
+                  />
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+          <CardFooter>
+            <Button
+              onClick={form.handleSubmit(onSubmit)}
+              disabled={isSubmitting}
+              className="w-full py-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-lg shadow-lg transition-all duration-300"
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <ArrowRight className="w-4 h-4 mr-2" />
+              )}
+              {isSubmitting ? "Submitting..." : "Submit Offer"}
+            </Button>
+          </CardFooter>
+        </Card>
       </motion.div>
     </div>
   );
