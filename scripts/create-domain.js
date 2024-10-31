@@ -73,7 +73,7 @@ async function promptUser(question) {
   });
 }
 
-async function deployDomain(folderName, turnstileSecretKey) {
+async function deployDomain(folderName, turnstileSecretKey, adminPassword) {
   logger.title(`Deploying ${styles.highlight(folderName)}`);
 
   try {
@@ -88,8 +88,15 @@ async function deployDomain(folderName, turnstileSecretKey) {
     });
 
     logger.info("Setting Turnstile secret...");
-    const secretCmd = `echo "${turnstileSecretKey}" | npx wrangler secret put TURNSTILE_SECRET_KEY -c domains/${folderName}/wrangler.toml`;
-    execSync(secretCmd, {
+    const turnstileCmd = `echo "${turnstileSecretKey}" | npx wrangler secret put TURNSTILE_SECRET_KEY -c domains/${folderName}/wrangler.toml`;
+    execSync(turnstileCmd, {
+      stdio: "inherit",
+      shell: true,
+    });
+
+    logger.info("Setting admin password...");
+    const adminCmd = `echo "${adminPassword}" | npx wrangler secret put ADMIN_PASSWORD -c domains/${folderName}/wrangler.toml`;
+    execSync(adminCmd, {
       stdio: "inherit",
       shell: true,
     });
@@ -197,13 +204,24 @@ async function createDomain() {
     fs.writeFileSync(path.join(folderPath, "wrangler.toml"), wranglerConfig);
     logger.success(`\nCreated configuration for ${domain} in ${folderPath}`);
 
+    // Ask for admin password
+    logger.info("\nYou'll need to set an admin password for accessing offers.");
+    const adminPassword = await promptUser(
+      "Enter the admin password you want to use: "
+    );
+
+    if (!adminPassword) {
+      logger.error("Admin password is required!");
+      process.exit(1);
+    }
+
     // Ask if they want to deploy
     const shouldDeploy = await promptUser(
       "\nWould you like to deploy this domain now? (y/n): "
     );
 
     if (shouldDeploy.toLowerCase() === "y") {
-      await deployDomain(folderName, turnstileSecretKey);
+      await deployDomain(folderName, turnstileSecretKey, adminPassword);
     }
 
     // Ask if user wants to add another

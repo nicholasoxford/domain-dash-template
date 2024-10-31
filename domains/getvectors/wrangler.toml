@@ -13,7 +13,7 @@ routes = [{ pattern = "getvectors.io", custom_domain = true }]
 
 [vars]
 BASE_URL = "getvectors.io"
-TURNSTILE_SITE_KEY = "0x4AAAAAAAy5CM5XebK9SpEj"
+TURNSTILE_SITE_KEY = "0x4AAAAAAAy5FJT0R2-pq6Su"
 
 [[kv_namespaces]]
 binding = "kvcache"
