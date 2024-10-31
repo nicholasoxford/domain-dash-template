@@ -2,6 +2,41 @@ const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
+const chalk = require("chalk");
+
+// Add some styling helpers
+const styles = {
+  title: chalk.bold.blue,
+  success: chalk.bold.green,
+  error: chalk.bold.red,
+  warning: chalk.yellow,
+  info: chalk.cyan,
+  prompt: chalk.magenta,
+  highlight: chalk.bold.white,
+};
+
+// Create a better logger
+const logger = {
+  title: (msg) => console.log(styles.title(`\n🚀 ${msg}`)),
+  success: (msg) => console.log(styles.success(`✅ ${msg}`)),
+  error: (msg) => console.log(styles.error(`❌ ${msg}`)),
+  warning: (msg) => console.log(styles.warning(`⚠️  ${msg}`)),
+  info: (msg) => console.log(styles.info(`ℹ️  ${msg}`)),
+  divider: () =>
+    console.log(chalk.gray("\n─────────────────────────────────────\n")),
+};
+
+// Parse command line arguments
+const args = process.argv.slice(2);
+let kvIdArg;
+
+// Look for --kv-id flag
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === "--kv-id" && args[i + 1]) {
+    kvIdArg = args[i + 1];
+    break;
+  }
+}
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -34,72 +69,82 @@ id = "{kvId}"
 
 async function promptUser(question) {
   return new Promise((resolve) => {
-    rl.question(question, resolve);
+    rl.question(styles.prompt(`${question}`), resolve);
   });
 }
 
 async function deployDomain(folderName, turnstileSecretKey) {
-  log(`\nDeploying ${folderName}...`);
+  logger.title(`Deploying ${styles.highlight(folderName)}`);
 
   try {
-    // Build worker (only needs to be done once)
     if (!fs.existsSync(path.join(__dirname, "..", ".worker-next"))) {
-      log("\nBuilding worker...");
+      logger.info("Building worker...");
       execSync("npm run build:worker", { stdio: "inherit" });
     }
 
-    // Deploy the worker
-    log("\nDeploying to Cloudflare...");
+    logger.info("Deploying to Cloudflare...");
     execSync(`npx wrangler deploy -c domains/${folderName}/wrangler.toml`, {
       stdio: "inherit",
     });
 
-    // Set the secret
-    console.log("\nSetting Turnstile secret...");
+    logger.info("Setting Turnstile secret...");
     const secretCmd = `echo "${turnstileSecretKey}" | npx wrangler secret put TURNSTILE_SECRET_KEY -c domains/${folderName}/wrangler.toml`;
     execSync(secretCmd, {
       stdio: "inherit",
       shell: true,
     });
 
-    log(`✅ Successfully deployed ${folderName}`);
+    logger.success(`Successfully deployed ${styles.highlight(folderName)}`);
+    logger.divider();
+    logger.info(
+      `Visit your site at: ${styles.highlight(`https://${folderName}.com`)}`
+    );
+    logger.info(
+      `Note: It may take a few minutes for DNS changes to propagate.`
+    );
+    logger.divider();
   } catch (error) {
-    console.log(`❌ Failed to deploy ${folderName}:`, error);
+    logger.error(`Failed to deploy ${styles.highlight(folderName)}`);
     throw error;
   }
 }
 
 async function createDomain() {
   try {
-    // Check wrangler auth
-    log("Checking Wrangler authentication...");
+    logger.title("Checking Wrangler authentication...");
     try {
       execSync("npx wrangler whoami", { stdio: "inherit" });
     } catch (error) {
-      console.error("Please login to Wrangler first using: npx wrangler login");
+      logger.error("Please login to Wrangler first using: npx wrangler login");
       process.exit(1);
     }
 
-    // Ask about KV namespace
-    let kvId = await promptUser(
-      "\nDo you have a KV namespace ID? If yes, enter it. If no, press enter: "
-    );
-
+    // Get KV namespace
+    let kvId = kvIdArg;
     if (!kvId) {
-      log("\nCreating new KV namespace...");
-      try {
-        const kvOutput = execSync(
-          "npx wrangler@latest kv:namespace create kvcache"
-        ).toString();
-        const match = kvOutput.match(/id = "([^"]+)"/);
-        if (!match) {
-          throw new Error("Failed to extract KV namespace ID");
+      logger.divider();
+      kvId = await promptUser(
+        "Do you have a KV namespace ID? If yes, enter it. If no, press enter: "
+      );
+
+      if (!kvId) {
+        logger.info("Creating new KV namespace...");
+        try {
+          const kvOutput = execSync(
+            "npx wrangler@latest kv:namespace create kvcache"
+          ).toString();
+          const match = kvOutput.match(/id = "([^"]+)"/);
+          if (!match) {
+            throw new Error("Failed to extract KV namespace ID");
+          }
+          kvId = match[1];
+          logger.success(
+            `Created KV namespace with ID: ${styles.highlight(kvId)}`
+          );
+        } catch (error) {
+          logger.error("Failed to create KV namespace");
+          process.exit(1);
         }
-        kvId = match[1];
-        log(`Created KV namespace with ID: ${kvId}`);
-      } catch (error) {
-        console.error("Failed to create KV namespace:", error);
-        process.exit(1);
       }
     }
 
@@ -113,9 +158,13 @@ async function createDomain() {
       .trim();
 
     // Get Turnstile keys
-    log("\nPlease visit https://dash.cloudflare.com/?to=/:account/turnstile");
-    log("Either click 'Add site' to create a new widget for your domain");
-    log("or click 'Settings' on an existing widget to get your keys.");
+    logger.info(
+      "Please visit https://dash.cloudflare.com/?to=/:account/turnstile"
+    );
+    logger.info(
+      "Either click 'Add site' to create a new widget for your domain"
+    );
+    logger.info("or click 'Settings' on an existing widget to get your keys.");
 
     const turnstileSiteKey = await promptUser(
       "\nEnter your Turnstile Site Key: "
@@ -125,7 +174,7 @@ async function createDomain() {
     );
 
     if (!turnstileSiteKey || !turnstileSecretKey) {
-      console.error("Both Turnstile Site Key and Secret Key are required!");
+      logger.error("Both Turnstile Site Key and Secret Key are required!");
       process.exit(1);
     }
 
@@ -146,7 +195,7 @@ async function createDomain() {
       .replace(/{turnstileSiteKey}/g, turnstileSiteKey);
 
     fs.writeFileSync(path.join(folderPath, "wrangler.toml"), wranglerConfig);
-    log(`\nCreated configuration for ${domain} in ${folderPath}`);
+    logger.success(`\nCreated configuration for ${domain} in ${folderPath}`);
 
     // Ask if they want to deploy
     const shouldDeploy = await promptUser(
@@ -166,10 +215,11 @@ async function createDomain() {
       await createDomain();
     } else {
       rl.close();
-      log("\nDone! All configurations have been created.");
+      logger.success("\nDone! All configurations have been created.");
     }
   } catch (error) {
-    console.error("An error occurred:", error);
+    logger.error("An error occurred:");
+    console.error(error);
     rl.close();
     process.exit(1);
   }

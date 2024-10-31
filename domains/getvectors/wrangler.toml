@@ -1,0 +1,20 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "getvectors"
+main = "../../.worker-next/index.mjs"
+
+compatibility_date = "2024-09-26"
+compatibility_flags = ["nodejs_compat"]
+
+minify = true
+
+assets = { directory = "../../.worker-next/assets", binding = "ASSETS" }
+
+routes = [{ pattern = "getvectors.io", custom_domain = true }]
+
+[vars]
+BASE_URL = "getvectors.io"
+TURNSTILE_SITE_KEY = "0x4AAAAAAAy5CM5XebK9SpEj"
+
+[[kv_namespaces]]
+binding = "kvcache"
+id = "7f87b2ba5c2344b6b7f14e1f96c3189b"
