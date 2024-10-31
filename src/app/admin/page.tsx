@@ -65,9 +65,21 @@ async function checkAuth() {
   return true;
 }
 
-export default async function AdminPage() {
+// Add this server action for domain selection
+async function handleDomainSelect(formData: FormData) {
+  "use server";
+  const domain = formData.get("domain")?.toString() || "";
+  redirect(`/admin?domain=${encodeURIComponent(domain)}`);
+}
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: { domain?: string };
+}) {
   const { env } = await getCloudflareContext();
   const isAuthenticated = await checkAuth();
+  const domainOffersKV = new DomainOffersKV(env.kvcache);
 
   if (!isAuthenticated) {
     return (
@@ -83,12 +95,11 @@ export default async function AdminPage() {
     );
   }
 
-  // If authenticated, show dashboard
-  const offers = await new DomainOffersKV(env.kvcache).getDomainOffers(
-    env.BASE_URL
-  );
-
-  console.log({ offers });
+  // Get all domains and current offers
+  const [allDomains, offers] = await Promise.all([
+    domainOffersKV.getAllDomains(),
+    domainOffersKV.getDomainOffers(searchParams.domain || env.BASE_URL),
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
@@ -97,14 +108,36 @@ export default async function AdminPage() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">
             Admin Dashboard
           </h1>
-          <form action={handleLogout}>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg hover:bg-slate-700 transition-colors"
-            >
-              Logout
-            </button>
-          </form>
+          <div className="flex gap-4 items-center">
+            {/* Add domain selector */}
+            <form action={handleDomainSelect} className="flex gap-2">
+              <select
+                name="domain"
+                defaultValue={searchParams.domain || env.BASE_URL}
+                className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg hover:bg-slate-700 transition-colors"
+              >
+                {allDomains.map((domain) => (
+                  <option key={domain} value={domain}>
+                    {domain}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg hover:bg-slate-700 transition-colors"
+              >
+                Filter
+              </button>
+            </form>
+            <form action={handleLogout}>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg hover:bg-slate-700 transition-colors"
+              >
+                Logout
+              </button>
+            </form>
+          </div>
         </div>
 
         <div className="grid gap-6 mb-8">

@@ -18,7 +18,7 @@ routes = [
 ]
 
 [vars]
-BASE_URL = "https://agi-2025.com"
+BASE_URL = "agi-2025.com"
 
 [[kv_namespaces]]
 binding = "kvcache"

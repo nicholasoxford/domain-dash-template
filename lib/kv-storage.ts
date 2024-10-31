@@ -73,4 +73,9 @@ export class DomainOffersKV {
       timestamp: new Date().toISOString(),
     };
   }
+
+  async getAllDomains() {
+    const { keys } = await this.kv.list({ prefix: "offers:" });
+    return keys.map((key) => key.name.replace("offers:", ""));
+  }
 }
