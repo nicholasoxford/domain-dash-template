@@ -1,0 +1,26 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "vecstack"
+main = "../../.worker-next/index.mjs"
+
+compatibility_date = "2024-09-26"
+compatibility_flags = ["nodejs_compat"]
+
+# Minification helps to keep the Worker bundle size down and improve start up time.
+minify = true
+
+# Use the new Workers + Assets to host the static frontend files
+assets = { directory = "../../.worker-next/assets", binding = "ASSETS" }
+
+
+
+routes = [
+   { pattern = "vecstack.com", custom_domain = true }
+]
+
+[vars]
+BASE_URL = "vecstack.com"
+TURNSTILE_SITE_KEY = "0x4AAAAAAAy2jJOe2MOctsmS"
+
+[[kv_namespaces]]
+binding = "kvcache"
+id = "7f87b2ba5c2344b6b7f14e1f96c3189b"
