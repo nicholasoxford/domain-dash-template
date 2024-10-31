@@ -70,15 +70,29 @@ export function OfferForm({
     message: "",
   });
 
+  const [currentDomain, setCurrentDomain] = useState<string>("");
+
   useEffect(() => {
     async function loadSiteKey() {
       console.log("HELLO  I AM HERE 3");
       const env = await getSiteKey();
       setSiteKey(env.TURNSTILE_SITE_KEY);
       setSiteBaseUrl(env.BASE_URL);
+      setCurrentDomain(env.BASE_URL);
     }
     loadSiteKey();
   }, []);
+
+  useEffect(() => {
+    if (currentDomain && form.getValues("description")) {
+      const description = form.getValues("description");
+      const updatedDescription = description.replace(
+        /([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}/g,
+        currentDomain
+      );
+      form.setValue("description", updatedDescription);
+    }
+  }, [currentDomain]);
 
   // Keep all your existing useEffect hooks here
   useEffect(() => {

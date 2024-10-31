@@ -79,6 +79,7 @@ export default async function AdminPage({
 }) {
   const { env } = await getCloudflareContext();
   const isAuthenticated = await checkAuth();
+  console.log({ env });
   const domainOffersKV = new DomainOffersKV(env.kvcache);
 
   if (!isAuthenticated) {
@@ -98,7 +99,9 @@ export default async function AdminPage({
   // Get all domains and current offers
   const [allDomains, offers] = await Promise.all([
     domainOffersKV.getAllDomains(),
-    domainOffersKV.getDomainOffers(searchParams.domain || env.BASE_URL),
+    domainOffersKV
+      .getDomainOffers(searchParams.domain || env.BASE_URL)
+      .catch(() => []),
   ]);
 
   return (
