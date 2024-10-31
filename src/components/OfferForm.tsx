@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Turnstile } from "@marsidev/react-turnstile";
-import { Globe, ArrowRight } from "lucide-react";
+import { Globe, ArrowRight, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 // Move the FloatingOrb component here
@@ -53,7 +53,6 @@ export function OfferForm({
   >(null);
   const [characterCount, setCharacterCount] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [escCount, setEscCount] = useState(0);
   const [lastEscTime, setLastEscTime] = useState(0);
 
@@ -61,6 +60,15 @@ export function OfferForm({
 
   const [siteKey, setSiteKey] = useState<string>("");
   const [siteBaseUrl, setSiteBaseUrl] = useState<string>("");
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<{
+    type: "success" | "error" | "idle";
+    message: string;
+  }>({
+    type: "idle",
+    message: "",
+  });
 
   useEffect(() => {
     async function loadSiteKey() {
@@ -90,17 +98,6 @@ export function OfferForm({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router, lastEscTime]);
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({
-        x: (e.clientX - window.innerWidth / 2) * 0.05,
-        y: (e.clientY - window.innerHeight / 2) * 0.05,
-      });
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
-
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -113,9 +110,45 @@ export function OfferForm({
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (turnstileStatus !== "solved" || !turnstileToken) {
+      setSubmitStatus({
+        type: "error",
+        message: "Please complete the verification",
+      });
       return;
     }
-    console.log(values);
+
+    setIsSubmitting(true);
+    setSubmitStatus({ type: "idle", message: "" });
+
+    try {
+      const response = await fetch("/api/offers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...values,
+          amount: Number(values.offer),
+          token: turnstileToken,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to submit offer");
+
+      setSubmitStatus({
+        type: "success",
+        message: "Your offer has been submitted successfully!",
+      });
+      form.reset();
+      setTurnstileToken(null);
+    } catch (error) {
+      setSubmitStatus({
+        type: "error",
+        message: "Failed to submit offer. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -152,10 +185,6 @@ export function OfferForm({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        style={{
-          x: mousePosition.x,
-          y: mousePosition.y,
-        }}
         transition={{
           type: "spring",
           stiffness: 100,
@@ -258,30 +287,83 @@ export function OfferForm({
                 />
               </div>
 
+              {/* Status Message */}
+              <AnimatePresence>
+                {submitStatus.message && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className={`rounded-lg p-4 text-sm ${
+                      submitStatus.type === "success"
+                        ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}
+                  >
+                    {submitStatus.message}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Submit Button */}
               <motion.button
                 type="submit"
+                disabled={isSubmitting}
                 onHoverStart={() => setIsHovered(true)}
                 onHoverEnd={() => setIsHovered(false)}
-                className="relative w-full group"
-                // Remove onClick from inner div and let form handle submission naturally
+                className={`relative w-full group ${
+                  isSubmitting ? "cursor-not-allowed opacity-80" : ""
+                }`}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg blur opacity-75 group-hover:opacity-100 transition duration-200" />
+                <div
+                  className={`absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg blur opacity-75 group-hover:opacity-100 transition duration-200 ${
+                    isSubmitting ? "opacity-50" : ""
+                  }`}
+                />
                 <div className="relative flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg text-white font-semibold leading-none">
-                  <motion.div
-                    animate={{ x: isHovered ? 5 : 0 }}
-                    transition={{ duration: 0.2 }}
-                    // Remove onClick handler from here
-                  >
-                    Submit Offer
-                  </motion.div>
-                  <motion.div
-                    animate={{ x: isHovered ? 5 : 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ArrowRight className="w-5 h-5" />
-                  </motion.div>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <motion.div
+                        animate={{ x: isHovered ? 5 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        Submit Offer
+                      </motion.div>
+                      <motion.div
+                        animate={{ x: isHovered ? 5 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ArrowRight className="w-5 h-5" />
+                      </motion.div>
+                    </>
+                  )}
                 </div>
               </motion.button>
+
+              {/* Form validation errors */}
+              <AnimatePresence>
+                {Object.keys(form.formState.errors).length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400"
+                  >
+                    <ul className="list-disc list-inside space-y-1">
+                      {Object.entries(form.formState.errors).map(
+                        ([field, error]) => (
+                          <li key={field}>{error?.message?.toString()}</li>
+                        )
+                      )}
+                    </ul>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </form>
           </div>
         </div>
