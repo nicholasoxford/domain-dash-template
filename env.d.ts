@@ -2,9 +2,10 @@
 
 interface CloudflareEnv {
 	kvcache: KVNamespace;
-	BASE_URL: "https://agi-2025.com";
+	BASE_URL: "agi-2025.com";
 	ADMIN_PASSWORD: string;
 	API_AUTH_TOKEN: string;
 	TURNSTILE_SECRET_KEY: string;
+	PUBLIC_TURNSTILE_SITE_KEY: string;
 	ASSETS: Fetcher;
 }

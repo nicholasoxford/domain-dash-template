@@ -248,12 +248,14 @@ export default function Component() {
                 onHoverStart={() => setIsHovered(true)}
                 onHoverEnd={() => setIsHovered(false)}
                 className="relative w-full group"
+                // Remove onClick from inner div and let form handle submission naturally
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg blur opacity-75 group-hover:opacity-100 transition duration-200" />
                 <div className="relative flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg text-white font-semibold leading-none">
                   <motion.div
                     animate={{ x: isHovered ? 5 : 0 }}
                     transition={{ duration: 0.2 }}
+                    // Remove onClick handler from here
                   >
                     Submit Offer
                   </motion.div>
