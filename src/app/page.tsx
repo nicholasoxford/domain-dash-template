@@ -6,7 +6,10 @@ export default function Page() {
     "use server";
     const { env } = await getCloudflareContext();
 
-    return env;
+    return {
+      TURNSTILE_SITE_KEY: env.TURNSTILE_SITE_KEY,
+      BASE_URL: env.BASE_URL,
+    };
   }
 
   return <OfferForm getSiteKey={getSiteKey} />;

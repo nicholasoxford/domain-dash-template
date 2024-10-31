@@ -42,7 +42,10 @@ const formSchema = z.object({
 export function OfferForm({
   getSiteKey,
 }: {
-  getSiteKey: () => Promise<CloudflareEnv>;
+  getSiteKey: () => Promise<{
+    TURNSTILE_SITE_KEY: string;
+    BASE_URL: string;
+  }>;
 }) {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileStatus, setTurnstileStatus] = useState<
