@@ -18,20 +18,15 @@ const offersResponseSchema = z.object({
 
 export async function getDomainOffers(domain: string): Promise<DomainOffer[]> {
   try {
-    const response = await fetch(
-      `https://durable-object-starter.noxford1.workers.dev?domain=${encodeURIComponent(
-        domain
-      )}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer YELLOW_BEAR_SUN",
-        },
-        // Add cache control for production
-        cache: process.env.NODE_ENV === "production" ? "no-cache" : undefined,
-      }
-    );
+    const response = await fetch(`/api/offers?domain=${domain}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer YELLOW_BEAR_SUN",
+      },
+      // Add cache control for production
+      cache: process.env.NODE_ENV === "production" ? "no-cache" : undefined,
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -51,36 +46,6 @@ export async function getDomainOffers(domain: string): Promise<DomainOffer[]> {
     console.error("Error fetching domain offers:", error);
     throw new Error("Failed to fetch domain offers");
   }
-}
-
-// Also add the submit function for completeness
-export async function submitDomainOffer(
-  domain: string,
-  offer: {
-    email: string;
-    amount: number;
-    description: string;
-  }
-) {
-  const response = await fetch(
-    `https://durable-object-starter.noxford1.workers.dev?domain=${encodeURIComponent(
-      domain
-    )}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer YELLOW_BEAR_SUN",
-      },
-      body: JSON.stringify(offer),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
 }
 
 export function cn(...inputs: ClassValue[]) {

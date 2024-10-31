@@ -12,10 +12,14 @@ minify = true
 assets = { directory = ".worker-next/assets", binding = "ASSETS" }
 
 
+
 routes = [
    { pattern = "agi-2025.com", custom_domain = true }
 ]
 
-[[durable_objects.bindings]]
-name = "DOMAIN_OFFERS_DO"
-class_name = "DomainOffersDO"
+[vars]
+BASE_URL = "https://agi-2025.com"
+
+[[kv_namespaces]]
+binding = "kvcache"
+id = "7f87b2ba5c2344b6b7f14e1f96c3189b"

@@ -1,8 +1,6 @@
-import { DurableObjectNamespace } from "@cloudflare/workers-types";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest } from "next/server";
-import { DomainOffer, DomainOffersDO } from "@/lib/durable-objects";
-export const runtime = "edge";
+import { DomainOffer, DomainOffersKV } from "@/lib/kv-storage";
 
 // CORS headers
 const corsHeaders = {
@@ -17,66 +15,37 @@ export async function OPTIONS() {
 }
 
 async function handleRequest(request: NextRequest) {
-  const ctx = await getCloudflareContext();
-  const env = ctx.env;
+  console.log("HITTING API");
+  // Get KV namespace
+  const { env } = await getCloudflareContext();
+  const kv = env.kvcache;
+  const domainOffersKV = new DomainOffersKV(kv);
 
-  // Check auth token
-  const authToken = request.headers.get("Authorization");
-  if (
-    !authToken ||
-    !authToken.startsWith("Bearer ") ||
-    authToken.split(" ")[1] !== env.API_AUTH_TOKEN
-  ) {
-    return new Response("Unauthorized", {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const url = new URL(request.url);
-  const domain = url.searchParams.get("domain");
-
-  if (!domain) {
-    return new Response("Domain parameter is required", { status: 400 });
-  }
-
-  // Get Durable Object instance
-  const domainOffersDoNamespace = env.DOMAIN_OFFERS_DO;
-  const domainOffersDoId = domainOffersDoNamespace.idFromName(
-    `domain-offers:${domain}`
-  );
-  const domainOffersDoStub = domainOffersDoNamespace.get(
-    domainOffersDoId
-  ) as any;
-  const domainOffersDo = new DomainOffersDO(domainOffersDoStub.state);
-
-  if (request.method === "DELETE") {
-    try {
-      const result = await domainOffersDo.deleteDomainOffers(domain);
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } catch (error) {
-      return new Response("Error deleting domain offers", {
-        status: 500,
-        headers: corsHeaders,
-      });
-    }
-  }
+  // Get domain from query param
+  const domain = env.BASE_URL;
 
   if (request.method === "POST") {
     try {
-      const { email, amount, description } =
+      const { email, amount, description, token } =
         (await request.json()) as DomainOffer;
 
-      if (!email || !amount) {
-        return new Response("Email and amount are required", {
+      if (!email || !amount || !token) {
+        return new Response("Email, amount, and token are required", {
           status: 400,
           headers: corsHeaders,
         });
       }
 
-      const result = await domainOffersDo.submitDomainOffer(domain, {
+      // Verify the token
+      const isValid = await verifyToken(token, env);
+      if (!isValid) {
+        return new Response("Invalid token", {
+          status: 400,
+          headers: corsHeaders,
+        });
+      }
+
+      const result = await domainOffersKV.submitDomainOffer(domain, {
         email,
         amount,
         description,
@@ -93,11 +62,69 @@ async function handleRequest(request: NextRequest) {
     }
   }
 
+  if (request.method === "DELETE") {
+    try {
+      // Check auth token
+      const authToken = request.headers.get("Authorization");
+      if (checkAuthToken(authToken, env)) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      const result = await domainOffersKV.deleteDomainOffers(domain);
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      return new Response("Error deleting domain offers", {
+        status: 500,
+        headers: corsHeaders,
+      });
+    }
+  }
+
+  // Check auth token
+  const authToken = request.headers.get("Authorization");
+
+  if (checkAuthToken(authToken, env)) {
+    return new Response("Unauthorized", {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   // GET request
-  const offers = await domainOffersDo.getDomainOffers(domain);
+  const offers = await domainOffersKV.getDomainOffers(domain);
+
   return new Response(JSON.stringify({ domain, offers }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function checkAuthToken(authToken: string | null, env: CloudflareEnv) {
+  return (
+    !authToken ||
+    !authToken.startsWith("Bearer ") ||
+    authToken.split(" ")[1] !== env.API_AUTH_TOKEN
+  );
+}
+
+const VERIFY_ENDPOINT =
+  "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+
+// Update the verifyToken function
+async function verifyToken(token: string, env: CloudflareEnv) {
+  const res = await fetch(VERIFY_ENDPOINT, {
+    method: "POST",
+    body: `secret=${encodeURIComponent(
+      env.TURNSTILE_SECRET_KEY
+    )}&response=${encodeURIComponent(token)}`,
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+  });
+
+  const data = (await res.json()) as { success: boolean };
+  return data.success;
 }
 
 export const GET = handleRequest;

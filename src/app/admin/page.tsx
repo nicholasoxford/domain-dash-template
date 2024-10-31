@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
-import { getDomainOffers } from "../../../lib/utils";
 import { redirect } from "next/navigation";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { z } from "zod";
 import LoginForm from "./login-form";
+import { DomainOffersKV } from "@/lib/kv-storage";
 
 const passwordSchema = z.object({
   password: z.string().min(1),
@@ -66,6 +66,7 @@ async function checkAuth() {
 }
 
 export default async function AdminPage() {
+  const { env } = await getCloudflareContext();
   const isAuthenticated = await checkAuth();
 
   if (!isAuthenticated) {
@@ -82,8 +83,12 @@ export default async function AdminPage() {
     );
   }
 
-  // If auth      enticated, show dashboard
-  const offers = await getDomainOffers("agi-2025.com");
+  // If authenticated, show dashboard
+  const offers = await new DomainOffersKV(env.kvcache).getDomainOffers(
+    env.BASE_URL
+  );
+
+  console.log({ offers });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">

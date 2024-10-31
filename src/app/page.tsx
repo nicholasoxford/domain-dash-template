@@ -27,9 +27,6 @@ const formSchema = z.object({
     .min(10, { message: "Please provide more details about your vision" }),
 });
 
-import { DomainOffersDO } from "@/lib/durable-objects";
-export { DomainOffersDO };
-
 export default function Page() {
   const router = useRouter();
 
@@ -87,6 +84,7 @@ export default function Page() {
           email: _values.name, // Note: You might want to add a separate email field
           amount: Number(_values.offer),
           description: _values.description,
+          token: turnstileToken,
         }),
       });
 
