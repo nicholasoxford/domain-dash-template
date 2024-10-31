@@ -155,16 +155,22 @@ export default async function AdminPage({
               <div className="bg-slate-900/50 p-4 rounded-lg">
                 <p className="text-slate-400 text-sm">Highest Offer</p>
                 <p className="text-2xl font-bold text-purple-400">
-                  ${Math.max(...offers.map((o) => o.amount)).toLocaleString()}
+                  $
+                  {offers.length
+                    ? Math.max(...offers.map((o) => o.amount)).toLocaleString()
+                    : "0"}
                 </p>
               </div>
               <div className="bg-slate-900/50 p-4 rounded-lg">
                 <p className="text-slate-400 text-sm">Average Offer</p>
                 <p className="text-2xl font-bold text-purple-400">
                   $
-                  {(
-                    offers.reduce((acc, o) => acc + o.amount, 0) / offers.length
-                  ).toLocaleString()}
+                  {offers.length
+                    ? (
+                        offers.reduce((acc, o) => acc + o.amount, 0) /
+                        offers.length
+                      ).toLocaleString()
+                    : "0"}
                 </p>
               </div>
             </div>
