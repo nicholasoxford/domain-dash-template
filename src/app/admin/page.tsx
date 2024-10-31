@@ -4,6 +4,8 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { z } from "zod";
 import LoginForm from "./login-form";
 import { DomainOffersKV } from "@/lib/kv-storage";
+import { DomainSelector } from "@/components/DomainSelector";
+import { DeleteButton } from "@/components/DeleteButton";
 
 const passwordSchema = z.object({
   password: z.string().min(1),
@@ -65,11 +67,21 @@ async function checkAuth() {
   return true;
 }
 
-// Add this server action for domain selection
-async function handleDomainSelect(formData: FormData) {
+// Add this server action
+async function deleteOffers(domain: string) {
   "use server";
-  const domain = formData.get("domain")?.toString() || "";
-  redirect(`/admin?domain=${encodeURIComponent(domain)}`);
+
+  const cookieStore = cookies();
+  const authCookie = cookieStore.get("admin_auth");
+
+  if (!authCookie?.value || authCookie.value !== "true") {
+    throw new Error("Unauthorized");
+  }
+
+  const { env } = await getCloudflareContext();
+  const domainOffersKV = new DomainOffersKV(env.kvcache);
+
+  await domainOffersKV.deleteDomainOffers(domain);
 }
 
 export default async function AdminPage({
@@ -79,8 +91,22 @@ export default async function AdminPage({
 }) {
   const { env } = await getCloudflareContext();
   const isAuthenticated = await checkAuth();
-  console.log({ env });
   const domainOffersKV = new DomainOffersKV(env.kvcache);
+
+  // Get all domains and offers
+  const [allDomains, offers] = await Promise.all([
+    domainOffersKV.getAllDomains(),
+    searchParams.domain === "all"
+      ? domainOffersKV.getAllOffers()
+      : domainOffersKV
+          .getDomainOffers(searchParams.domain || env.BASE_URL)
+          .then((offers) =>
+            offers.map((offer) => ({
+              ...offer,
+              domain: searchParams.domain || env.BASE_URL,
+            }))
+          ),
+  ]);
 
   if (!isAuthenticated) {
     return (
@@ -96,14 +122,6 @@ export default async function AdminPage({
     );
   }
 
-  // Get all domains and current offers
-  const [allDomains, offers] = await Promise.all([
-    domainOffersKV.getAllDomains(),
-    domainOffersKV
-      .getDomainOffers(searchParams.domain || env.BASE_URL)
-      .catch(() => []),
-  ]);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
       <div className="max-w-6xl mx-auto bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-800 p-8">
@@ -112,26 +130,16 @@ export default async function AdminPage({
             Admin Dashboard
           </h1>
           <div className="flex gap-4 items-center">
-            {/* Add domain selector */}
-            <form action={handleDomainSelect} className="flex gap-2">
-              <select
-                name="domain"
-                defaultValue={searchParams.domain || env.BASE_URL}
-                className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg hover:bg-slate-700 transition-colors"
-              >
-                {allDomains.map((domain) => (
-                  <option key={domain} value={domain}>
-                    {domain}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg hover:bg-slate-700 transition-colors"
-              >
-                Filter
-              </button>
-            </form>
+            <DomainSelector
+              domains={allDomains}
+              currentDomain={searchParams.domain || env.BASE_URL}
+            />
+            {searchParams.domain && searchParams.domain !== "all" && (
+              <DeleteButton
+                domain={searchParams.domain}
+                onDelete={deleteOffers}
+              />
+            )}
             <form action={handleLogout}>
               <button
                 type="submit"
@@ -169,9 +177,9 @@ export default async function AdminPage({
                 <p className="text-2xl font-bold text-purple-400">
                   $
                   {offers.length
-                    ? (
+                    ? Math.round(
                         offers.reduce((acc, o) => acc + o.amount, 0) /
-                        offers.length
+                          offers.length
                       ).toLocaleString()
                     : "0"}
                 </p>
@@ -188,32 +196,28 @@ export default async function AdminPage({
                 <thead className="text-sm text-slate-400">
                   <tr>
                     <th className="p-4">Date</th>
+                    <th className="p-4">Domain</th>
                     <th className="p-4">Email</th>
                     <th className="p-4">Amount</th>
                     <th className="p-4">Description</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {offers
-                    .sort(
-                      (a, b) =>
-                        new Date(b.timestamp).getTime() -
-                        new Date(a.timestamp).getTime()
-                    )
-                    .map((offer, i) => (
-                      <tr key={i} className="border-t border-slate-700">
-                        <td className="p-4">
-                          {new Date(offer.timestamp).toLocaleDateString()}
-                        </td>
-                        <td className="p-4">{offer.email}</td>
-                        <td className="p-4">
-                          ${offer.amount.toLocaleString()}
-                        </td>
-                        <td className="p-4 truncate max-w-xs">
-                          {offer.description}
-                        </td>
-                      </tr>
-                    ))}
+                  {offers.map((offer, i) => (
+                    <tr key={i} className="border-t border-slate-700">
+                      <td className="p-4">
+                        {new Date(offer.timestamp).toLocaleDateString()}
+                      </td>
+                      <td className="p-4 font-medium text-purple-400">
+                        {offer.domain}
+                      </td>
+                      <td className="p-4">{offer.email}</td>
+                      <td className="p-4">${offer.amount.toLocaleString()}</td>
+                      <td className="p-4 truncate max-w-xs">
+                        {offer.description}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

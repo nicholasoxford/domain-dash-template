@@ -13,7 +13,9 @@
     "build:worker": "cloudflare",
     "dev:worker": "wrangler dev --port 8771",
     "preview:worker": "npm run build:worker && npm run dev:worker",
-    "deploy:worker": "npm run build:worker && wrangler deploy"
+    "deploy:worker": "npm run build:worker && wrangler deploy",
+    "create-domain": "node scripts/create-domain.js",
+    "deploy-all": "node scripts/deploy-all.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

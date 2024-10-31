@@ -78,4 +78,29 @@ export class DomainOffersKV {
     const { keys } = await this.kv.list({ prefix: "offers:" });
     return keys.map((key) => key.name.replace("offers:", ""));
   }
+
+  async getAllOffers() {
+    const { keys } = await this.kv.list({ prefix: "offers:" });
+    const allOffers: (DomainOffer & { domain: string })[] = [];
+
+    for (const key of keys) {
+      const domain = key.name.replace("offers:", "");
+      const offersJson = await this.kv.get(key.name);
+      if (offersJson) {
+        const offers = JSON.parse(offersJson) as DomainOffer[];
+        allOffers.push(
+          ...offers.map((offer) => ({
+            ...offer,
+            domain,
+          }))
+        );
+      }
+    }
+
+    // Sort by timestamp, newest first
+    return allOffers.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  }
 }
