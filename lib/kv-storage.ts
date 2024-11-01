@@ -200,8 +200,26 @@ export class DomainOffersKV {
       })
     );
 
-    // Sort by visits desc
-    return stats.sort((a, b) => b.visits - a.visits);
+    // Updated sorting logic
+    return stats.sort((a, b) => {
+      // First sort by offer count
+      const offerCompare = b.offerCount - a.offerCount;
+
+      // If offer counts are equal (both have no offers)
+      if (offerCompare === 0) {
+        // Sort by visits (higher visits first)
+        const visitCompare = b.visits - a.visits;
+
+        // If visits are also equal, sort alphabetically
+        if (visitCompare === 0) {
+          return a.domain.localeCompare(b.domain);
+        }
+
+        return visitCompare;
+      }
+
+      return offerCompare;
+    });
   }
 }
 
