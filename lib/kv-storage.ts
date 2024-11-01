@@ -204,3 +204,12 @@ export class DomainOffersKV {
     return stats.sort((a, b) => b.visits - a.visits);
   }
 }
+
+export type DomainStat = {
+  domain: string;
+  visits: number;
+  lastOffer: Date | null;
+  avgOffer: number;
+  topOffer: number;
+  offerCount: number;
+};

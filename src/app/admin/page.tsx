@@ -6,6 +6,7 @@ import LoginForm from "./login-form";
 import { DomainOffersKV } from "@/lib/kv-storage";
 import { DomainSelector } from "@/components/DomainSelector";
 import { DeleteOfferButton } from "@/components/DeleteOfferButton";
+import { DomainStatsTable } from "@/components/DomainTable";
 
 const passwordSchema = z.object({
   password: z.string().min(1),
@@ -286,47 +287,9 @@ export default async function AdminPage({
           <h2 className="text-xl font-semibold text-slate-200 mb-4">
             Domain Statistics
           </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-slate-200">
-              <thead className="text-sm text-slate-400">
-                <tr>
-                  <th className="p-4">Domain</th>
-                  <th className="p-4">Total Views</th>
-                  <th className="p-4">Last Offer</th>
-                  <th className="p-4">Avg Offer</th>
-                  <th className="p-4">Top Offer</th>
-                  <th className="p-4">Total Offers</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(await domainOffersKV.getDomainStats()).map((stat) => (
-                  <tr
-                    key={stat.domain}
-                    className="border-t border-slate-700 hover:bg-slate-800/30 transition-colors cursor-pointer"
-                  >
-                    <td className="p-4 font-medium text-purple-400">
-                      {stat.domain}
-                    </td>
-                    <td className="p-4">
-                      {stat.visits === 0 ? (
-                        <span className="text-slate-500">-</span>
-                      ) : (
-                        stat.visits.toLocaleString()
-                      )}
-                    </td>
-                    <td className="p-4">
-                      {stat.lastOffer
-                        ? stat.lastOffer.toLocaleDateString()
-                        : "No offers"}
-                    </td>
-                    <td className="p-4">${stat.avgOffer.toLocaleString()}</td>
-                    <td className="p-4">${stat.topOffer.toLocaleString()}</td>
-                    <td className="p-4">{stat.offerCount.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DomainStatsTable
+            initialStats={await domainOffersKV.getDomainStats()}
+          />
         </div>
       </div>
     </div>
