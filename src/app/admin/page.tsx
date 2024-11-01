@@ -1,118 +1,12 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { z } from "zod";
 import LoginForm from "./login-form";
 import { DomainOffersKV } from "@/lib/kv-storage";
 import { DomainSelector } from "@/components/DomainSelector";
 import { DeleteOfferButton } from "@/components/DeleteOfferButton";
 import { DomainStatsTable } from "@/components/DomainTable";
 import Link from "next/link";
-
-const passwordSchema = z.object({
-  password: z.string().min(1),
-});
-
-// Server Action for password verification
-async function verifyPassword(formData: FormData) {
-  "use server";
-
-  const password = formData.get("password");
-  const parsed = passwordSchema.safeParse({ password });
-
-  const ctx = await getCloudflareContext();
-  const adminPassword = ctx.env.ADMIN_PASSWORD;
-  if (!parsed.success || password !== adminPassword) {
-    return { error: "Invalid password" };
-  }
-
-  cookies().set("admin_auth", "true", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 3600, // 1 hour
-  });
-
-  cookies().set("admin_auth_time", Date.now().toString(), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 3600,
-  });
-
-  // Redirect to the same page to show the dashboard
-  redirect("/admin");
-}
-
-async function handleLogout() {
-  "use server";
-  cookies().delete("admin_auth");
-  cookies().delete("admin_auth_time");
-  redirect("/");
-}
-
-// Check if authenticated
-async function checkAuth() {
-  const cookieStore = cookies();
-  const authCookie = cookieStore.get("admin_auth");
-
-  if (!authCookie?.value || authCookie.value !== "true") {
-    return false;
-  }
-
-  const cookieAge = cookieStore.get("admin_auth_time")?.value;
-  if (!cookieAge || Date.now() - parseInt(cookieAge) > 3600000) {
-    // 1 hour
-    return false;
-  }
-
-  return true;
-}
-
-// Add this server action
-async function deleteOffers(domain: string) {
-  "use server";
-
-  const cookieStore = cookies();
-  const authCookie = cookieStore.get("admin_auth");
-
-  if (!authCookie?.value || authCookie.value !== "true") {
-    throw new Error("Unauthorized");
-  }
-
-  const { env } = await getCloudflareContext();
-  const domainOffersKV = new DomainOffersKV(env.kvcache);
-
-  await domainOffersKV.deleteDomainOffers(domain);
-}
-
-// Add this server action
-async function deleteOffer(domain: string, timestamp: string) {
-  "use server";
-
-  const cookieStore = cookies();
-  const authCookie = cookieStore.get("admin_auth");
-
-  if (!authCookie?.value || authCookie.value !== "true") {
-    throw new Error("Unauthorized");
-  }
-
-  const { env } = await getCloudflareContext();
-  const domainOffersKV = new DomainOffersKV(env.kvcache);
-
-  await domainOffersKV.deleteSingleOffer(domain, timestamp);
-}
-
-// Add this helper function at the top of the file
-async function getTotalVisits(
-  domainOffersKV: DomainOffersKV,
-  domains: string[]
-) {
-  const visits = await Promise.all(
-    domains.map((domain) => domainOffersKV.getVisits(domain))
-  );
-  return visits.reduce((sum, count) => sum + count, 0);
-}
+import { checkAuth, handleLogout, verifyPassword } from "@/lib/auth";
 
 export default async function AdminPage({
   searchParams,
@@ -308,4 +202,32 @@ export default async function AdminPage({
       </div>
     </div>
   );
+}
+
+// Add this server action
+async function deleteOffer(domain: string, timestamp: string) {
+  "use server";
+
+  const cookieStore = cookies();
+  const authCookie = cookieStore.get("admin_auth");
+
+  if (!authCookie?.value || authCookie.value !== "true") {
+    throw new Error("Unauthorized");
+  }
+
+  const { env } = await getCloudflareContext();
+  const domainOffersKV = new DomainOffersKV(env.kvcache);
+
+  await domainOffersKV.deleteSingleOffer(domain, timestamp);
+}
+
+// Add this helper function at the top of the file
+async function getTotalVisits(
+  domainOffersKV: DomainOffersKV,
+  domains: string[]
+) {
+  const visits = await Promise.all(
+    domains.map((domain) => domainOffersKV.getVisits(domain))
+  );
+  return visits.reduce((sum, count) => sum + count, 0);
 }
