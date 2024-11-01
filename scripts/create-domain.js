@@ -134,9 +134,7 @@ async function deployDomain(folderName, turnstileSecretKey, adminPassword) {
 
     logger.success(`Successfully deployed ${styles.highlight(folderName)}`);
     logger.divider();
-    logger.info(
-      `Visit your site at: ${styles.highlight(`https://${folderName}.com`)}`
-    );
+    logger.info(`Visit your site at: ${styles.highlight(`https://${domain}`)}`);
     logger.info(
       `Note: It may take a few minutes for DNS changes to propagate.`
     );
