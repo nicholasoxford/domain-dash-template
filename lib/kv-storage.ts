@@ -103,4 +103,44 @@ export class DomainOffersKV {
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
   }
+
+  async deleteSingleOffer(domain: string, timestamp: string) {
+    const key = `offers:${domain}`;
+    const offersJson = await this.kv.get(key);
+
+    if (!offersJson) return;
+
+    const offers: DomainOffer[] = JSON.parse(offersJson);
+    const filteredOffers = offers.filter(
+      (offer) => offer.timestamp !== timestamp
+    );
+
+    if (filteredOffers.length === 0) {
+      await this.kv.delete(key);
+    } else {
+      await this.kv.put(key, JSON.stringify(filteredOffers));
+    }
+
+    return {
+      domain,
+      message: "Offer deleted successfully",
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  async initializeDomain(domain: string) {
+    const key = `offers:${domain}`;
+    const existingOffersJson = await this.kv.get(key);
+
+    // Only initialize if the key doesn't exist
+    if (!existingOffersJson) {
+      await this.kv.put(key, JSON.stringify([]));
+    }
+
+    return {
+      domain,
+      message: "Domain initialized successfully",
+      timestamp: new Date().toISOString(),
+    };
+  }
 }

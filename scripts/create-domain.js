@@ -28,15 +28,19 @@ const logger = {
 
 // Parse command line arguments
 const args = process.argv.slice(2);
-let kvIdArg;
+let kvIdArg, adminPasswordArg;
 
-// Look for --kv-id flag
+// Look for --kv-id and --admin-password flags
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--kv-id" && args[i + 1]) {
     kvIdArg = args[i + 1];
-    break;
+  }
+  if (args[i] === "--admin-password" && args[i + 1]) {
+    adminPasswordArg = args[i + 1];
   }
 }
+
+let globalAdminPassword = adminPasswordArg || "";
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -71,6 +75,33 @@ async function promptUser(question) {
   return new Promise((resolve) => {
     rl.question(styles.prompt(`${question}`), resolve);
   });
+}
+
+async function promptForAdminPassword() {
+  if (globalAdminPassword) {
+    logger.info("Using provided admin password");
+    return globalAdminPassword;
+  }
+
+  logger.title("Admin Password Setup");
+  logger.info(
+    "This password will be used to access the admin dashboard for all domains."
+  );
+  logger.info(
+    "You can change this later by running: npx wrangler secret put ADMIN_PASSWORD"
+  );
+
+  const password = await promptUser(
+    "\nEnter the admin password you want to use: "
+  );
+
+  if (!password) {
+    logger.error("Admin password is required!");
+    process.exit(1);
+  }
+
+  globalAdminPassword = password;
+  return password;
 }
 
 async function deployDomain(folderName, turnstileSecretKey, adminPassword) {
@@ -120,10 +151,15 @@ async function createDomain() {
   try {
     logger.title("Checking Wrangler authentication...");
     try {
-      execSync("npx wrangler whoami", { stdio: "inherit" });
+      execSync("npx wrangler whoami", { stdio: "pipe" });
     } catch (error) {
       logger.error("Please login to Wrangler first using: npx wrangler login");
       process.exit(1);
+    }
+
+    // Get admin password first if not already set
+    if (!globalAdminPassword) {
+      await promptForAdminPassword();
     }
 
     // Get KV namespace
@@ -164,6 +200,23 @@ async function createDomain() {
       .replace(/^www\./, "") // Remove www.
       .trim();
 
+    // Create folder name from domain
+    const folderName = domain.replace(/\.[^/.]+$/, ""); // Remove TLD
+
+    // Initialize the domain in KV
+    logger.info("Initializing domain in KV storage...");
+    try {
+      console.log("about to call");
+      const initCmd = `npx wrangler kv:key put "offers:${domain}" "[]" --namespace-id=${kvId}`;
+      execSync(initCmd, {
+        stdio: "inherit",
+        shell: true,
+      });
+      logger.success("Domain initialized in KV storage");
+    } catch (error) {
+      logger.warning("Domain might already exist in KV storage, continuing...");
+    }
+
     // Get Turnstile keys
     logger.info(
       "Please visit https://dash.cloudflare.com/?to=/:account/turnstile"
@@ -186,7 +239,6 @@ async function createDomain() {
     }
 
     // Create folder name from domain
-    const folderName = domain.replace(/\.[^/.]+$/, ""); // Remove TLD
     const folderPath = path.join(__dirname, "..", "domains", folderName);
 
     // Create directory if it doesn't exist
@@ -194,7 +246,7 @@ async function createDomain() {
       fs.mkdirSync(folderPath, { recursive: true });
     }
 
-    // Create wrangler.toml (without secret key)
+    // Create wrangler.toml first
     const wranglerConfig = baseWranglerConfig
       .replace(/{name}/g, folderName)
       .replace(/{domain}/g, domain)
@@ -202,18 +254,7 @@ async function createDomain() {
       .replace(/{turnstileSiteKey}/g, turnstileSiteKey);
 
     fs.writeFileSync(path.join(folderPath, "wrangler.toml"), wranglerConfig);
-    logger.success(`\nCreated configuration for ${domain} in ${folderPath}`);
-
-    // Ask for admin password
-    logger.info("\nYou'll need to set an admin password for accessing offers.");
-    const adminPassword = await promptUser(
-      "Enter the admin password you want to use: "
-    );
-
-    if (!adminPassword) {
-      logger.error("Admin password is required!");
-      process.exit(1);
-    }
+    logger.success(`Created configuration for ${domain} in ${folderPath}`);
 
     // Ask if they want to deploy
     const shouldDeploy = await promptUser(
@@ -221,7 +262,7 @@ async function createDomain() {
     );
 
     if (shouldDeploy.toLowerCase() === "y") {
-      await deployDomain(folderName, turnstileSecretKey, adminPassword);
+      await deployDomain(folderName, turnstileSecretKey, globalAdminPassword);
     }
 
     // Ask if user wants to add another
@@ -230,10 +271,14 @@ async function createDomain() {
     );
 
     if (addAnother.toLowerCase() === "y") {
-      await createDomain();
+      await createDomain(); // Will reuse the same admin password
     } else {
       rl.close();
       logger.success("\nDone! All configurations have been created.");
+      logger.info("\nTo change the admin password for any domain later:");
+      logger.info(
+        "npx wrangler secret put ADMIN_PASSWORD -c domains/<domain>/wrangler.toml"
+      );
     }
   } catch (error) {
     logger.error("An error occurred:");
@@ -241,6 +286,22 @@ async function createDomain() {
     rl.close();
     process.exit(1);
   }
+}
+
+// Add help text at the start
+if (args.includes("--help") || args.includes("-h")) {
+  console.log(`
+Usage: npm run create-domain [options]
+
+Options:
+  --kv-id <id>            KV namespace ID to use
+  --admin-password <pwd>   Admin password to use for all domains
+  -h, --help              Show this help message
+
+Example:
+  npm run create-domain --kv-id abc123 --admin-password mypassword
+  `);
+  process.exit(0);
 }
 
 createDomain().catch(console.error);

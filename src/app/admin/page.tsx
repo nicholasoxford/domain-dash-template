@@ -5,7 +5,7 @@ import { z } from "zod";
 import LoginForm from "./login-form";
 import { DomainOffersKV } from "@/lib/kv-storage";
 import { DomainSelector } from "@/components/DomainSelector";
-import { DeleteButton } from "@/components/DeleteButton";
+import { DeleteOfferButton } from "@/components/DeleteOfferButton";
 
 const passwordSchema = z.object({
   password: z.string().min(1),
@@ -84,6 +84,23 @@ async function deleteOffers(domain: string) {
   await domainOffersKV.deleteDomainOffers(domain);
 }
 
+// Add this server action
+async function deleteOffer(domain: string, timestamp: string) {
+  "use server";
+
+  const cookieStore = cookies();
+  const authCookie = cookieStore.get("admin_auth");
+
+  if (!authCookie?.value || authCookie.value !== "true") {
+    throw new Error("Unauthorized");
+  }
+
+  const { env } = await getCloudflareContext();
+  const domainOffersKV = new DomainOffersKV(env.kvcache);
+
+  await domainOffersKV.deleteSingleOffer(domain, timestamp);
+}
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -134,12 +151,7 @@ export default async function AdminPage({
               domains={allDomains}
               currentDomain={searchParams.domain || env.BASE_URL}
             />
-            {searchParams.domain && searchParams.domain !== "all" && (
-              <DeleteButton
-                domain={searchParams.domain}
-                onDelete={deleteOffers}
-              />
-            )}
+
             <form action={handleLogout}>
               <button
                 type="submit"
@@ -200,11 +212,15 @@ export default async function AdminPage({
                     <th className="p-4">Email</th>
                     <th className="p-4">Amount</th>
                     <th className="p-4">Description</th>
+                    <th className="p-4 w-20">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {offers.map((offer, i) => (
-                    <tr key={i} className="border-t border-slate-700">
+                  {offers.map((offer) => (
+                    <tr
+                      key={offer.timestamp}
+                      className="border-t border-slate-700"
+                    >
                       <td className="p-4">
                         {new Date(offer.timestamp).toLocaleDateString()}
                       </td>
@@ -215,6 +231,13 @@ export default async function AdminPage({
                       <td className="p-4">${offer.amount.toLocaleString()}</td>
                       <td className="p-4 truncate max-w-xs">
                         {offer.description}
+                      </td>
+                      <td className="p-4">
+                        <DeleteOfferButton
+                          domain={offer.domain}
+                          timestamp={offer.timestamp}
+                          onDelete={deleteOffer}
+                        />
                       </td>
                     </tr>
                   ))}
