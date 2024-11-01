@@ -1,32 +1,46 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
-interface DomainSelectorProps {
-  domains: string[];
-  currentDomain: string;
-}
-
 export function DomainSelector({
   domains,
   currentDomain,
-}: DomainSelectorProps) {
-  const router = useRouter();
-
+}: {
+  domains: string[];
+  currentDomain: string;
+}) {
   return (
-    <select
-      value={currentDomain}
-      onChange={(e) =>
-        router.push(`/admin?domain=${encodeURIComponent(e.target.value)}`)
-      }
-      className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg hover:bg-slate-700 transition-colors"
-    >
-      <option value="all">All Domains</option>
-      {domains.map((domain) => (
-        <option key={domain} value={domain}>
-          {domain}
-        </option>
-      ))}
-    </select>
+    <div className="relative">
+      <select
+        value={currentDomain}
+        onChange={(e) => {
+          window.location.href = `/admin?domain=${e.target.value}`;
+        }}
+        className="bg-slate-800 text-slate-200 px-4 py-2 pr-8 rounded-lg 
+          appearance-none cursor-pointer hover:bg-slate-700 
+          transition-colors relative"
+      >
+        {domains.map((domain) => (
+          <option key={domain} value={domain}>
+            {domain}
+          </option>
+        ))}
+      </select>
+
+      {/* Dropdown Arrow */}
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+        <svg
+          className="h-4 w-4 text-slate-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </div>
+    </div>
   );
 }

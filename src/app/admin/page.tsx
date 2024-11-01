@@ -204,7 +204,7 @@ export default async function AdminPage({
                   </p>
                 </div>
               </div>
-              <div className="bg-slate-900/50 p-6 rounded-lg">
+              <div className="bg-slate-900/50 p-6 rounded-lg transform hover:scale-105 transition-all">
                 <p className="text-slate-400 text-sm mb-2">Highest Offer</p>
                 <p className="text-3xl font-bold text-purple-400">
                   $
@@ -213,7 +213,7 @@ export default async function AdminPage({
                     : "0"}
                 </p>
               </div>
-              <div className="bg-slate-900/50 p-6 rounded-lg">
+              <div className="bg-slate-900/50 p-6 rounded-lg transform hover:scale-105 transition-all">
                 <p className="text-slate-400 text-sm mb-2">Average Offer</p>
                 <p className="text-3xl font-bold text-purple-400">
                   $
@@ -225,7 +225,7 @@ export default async function AdminPage({
                     : "0"}
                 </p>
               </div>
-              <div className="bg-slate-900/50 p-6 rounded-lg">
+              <div className="bg-slate-900/50 p-6 rounded-lg transform hover:scale-105 transition-all">
                 <p className="text-slate-400 text-sm mb-2">Total Visits</p>
                 <p className="text-3xl font-bold text-purple-400">
                   {searchParams.domain === "all"
@@ -264,7 +264,9 @@ export default async function AdminPage({
                         {new Date(offer.timestamp).toLocaleDateString()}
                       </td>
                       <td className="p-4 font-medium text-purple-400">
-                        {offer.domain}
+                        <Link href={`https://${offer.domain}`}>
+                          {offer.domain}
+                        </Link>
                       </td>
                       <td className="p-4">{offer.email}</td>
                       <td className="p-4">
