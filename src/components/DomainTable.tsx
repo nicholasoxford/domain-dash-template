@@ -53,7 +53,7 @@ export function DomainStatsTable({
     field: SortField;
     direction: SortDirection;
   }>({
-    field: "visits",
+    field: "offerCount",
     direction: "desc",
   });
 
@@ -116,6 +116,12 @@ export function DomainStatsTable({
               onSort={handleSort}
             />
             <SortableHeader
+              label="Total Offers"
+              field="offerCount"
+              currentSort={sort}
+              onSort={handleSort}
+            />
+            <SortableHeader
               label="Total Views"
               field="visits"
               currentSort={sort}
@@ -139,21 +145,46 @@ export function DomainStatsTable({
               currentSort={sort}
               onSort={handleSort}
             />
-            <SortableHeader
-              label="Total Offers"
-              field="offerCount"
-              currentSort={sort}
-              onSort={handleSort}
-            />
           </tr>
         </thead>
         <tbody>
           {stats.map((stat) => (
             <tr
               key={stat.domain}
-              className="border-t border-slate-700 hover:bg-slate-800/30 transition-colors cursor-pointer"
+              className="border-t border-slate-700 hover:bg-slate-800/30 transition-colors"
             >
-              <td className="p-4 font-medium text-purple-400">{stat.domain}</td>
+              <td className="p-4 font-medium">
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`https://${stat.domain}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 group"
+                  >
+                    {stat.domain}
+                    <svg
+                      className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
+                    </svg>
+                  </a>
+                </div>
+              </td>
+              <td className="p-4">
+                {stat.offerCount === 0 ? (
+                  <span className="text-slate-500">-</span>
+                ) : (
+                  stat.offerCount.toLocaleString()
+                )}
+              </td>
               <td className="p-4">
                 {stat.visits === 0 ? (
                   <span className="text-slate-500">-</span>
@@ -180,13 +211,6 @@ export function DomainStatsTable({
                   <span className="text-slate-500">-</span>
                 ) : (
                   `$${stat.topOffer.toLocaleString()}`
-                )}
-              </td>
-              <td className="p-4">
-                {stat.offerCount === 0 ? (
-                  <span className="text-slate-500">-</span>
-                ) : (
-                  stat.offerCount.toLocaleString()
                 )}
               </td>
             </tr>

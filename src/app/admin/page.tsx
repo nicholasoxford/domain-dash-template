@@ -7,6 +7,7 @@ import { DomainOffersKV } from "@/lib/kv-storage";
 import { DomainSelector } from "@/components/DomainSelector";
 import { DeleteOfferButton } from "@/components/DeleteOfferButton";
 import { DomainStatsTable } from "@/components/DomainTable";
+import Link from "next/link";
 
 const passwordSchema = z.object({
   password: z.string().min(1),
@@ -158,11 +159,22 @@ export default async function AdminPage({
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">
             Admin Dashboard
           </h1>
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-3 items-center">
             <DomainSelector
               domains={allDomains}
               currentDomain={searchParams.domain || env.BASE_URL}
             />
+
+            <Link
+              href="/admin?domain=all"
+              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                searchParams.domain === "all"
+                  ? "bg-purple-500 text-white shadow-lg shadow-purple-500/20"
+                  : "bg-slate-800 text-slate-200 hover:bg-slate-700"
+              }`}
+            >
+              All Domains
+            </Link>
 
             <form action={handleLogout}>
               <button

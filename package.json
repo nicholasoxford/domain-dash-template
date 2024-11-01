@@ -15,7 +15,8 @@
     "preview:worker": "npm run build:worker && npm run dev:worker",
     "deploy:worker": "npm run build:worker && wrangler deploy",
     "add-domain": "node scripts/add-domain.js",
-    "deploy-all": "node scripts/deploy-all.js"
+    "deploy-all": "node scripts/deploy-all.js",
+    "update-secrets": "node scripts/update-secrets.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
