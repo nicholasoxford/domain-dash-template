@@ -58,18 +58,21 @@ export function DomainStatsTable({
   });
 
   const handleSort = (field: SortField) => {
-    setSort((prev) => ({
+    // Calculate new sort state first
+    const newSort: { field: SortField; direction: SortDirection } = {
       field,
       // If clicking the same field, cycle through: desc -> asc -> desc
       // If clicking a new field, start with desc
       direction:
-        prev.field === field
-          ? prev.direction === "desc"
-            ? "asc"
-            : "desc"
+        sort.field === field
+          ? ((sort.direction === "desc" ? "asc" : "desc") as SortDirection)
           : "desc",
-    }));
+    };
 
+    // Update sort state
+    setSort(newSort);
+
+    // Use the new sort state for sorting
     setStats((prev) =>
       [...prev].sort((a, b) => {
         let comparison = 0;
@@ -96,7 +99,7 @@ export function DomainStatsTable({
             break;
         }
 
-        return sort.direction === "asc" ? comparison : -comparison;
+        return newSort.direction === "asc" ? comparison : -comparison;
       })
     );
   };
