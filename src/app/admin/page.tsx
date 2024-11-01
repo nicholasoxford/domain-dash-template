@@ -101,6 +101,17 @@ async function deleteOffer(domain: string, timestamp: string) {
   await domainOffersKV.deleteSingleOffer(domain, timestamp);
 }
 
+// Add this helper function at the top of the file
+async function getTotalVisits(
+  domainOffersKV: DomainOffersKV,
+  domains: string[]
+) {
+  const visits = await Promise.all(
+    domains.map((domain) => domainOffersKV.getVisits(domain))
+  );
+  return visits.reduce((sum, count) => sum + count, 0);
+}
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -168,25 +179,30 @@ export default async function AdminPage({
             <h2 className="text-xl font-semibold text-slate-200 mb-4">
               Offer Statistics
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-slate-900/50 p-4 rounded-lg">
-                <p className="text-slate-400 text-sm">Total Offers</p>
-                <p className="text-2xl font-bold text-purple-400">
-                  {offers.length}
-                </p>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 divide-x divide-slate-700/50">
+              <div className="bg-slate-900/50 p-6 rounded-lg transform hover:scale-105 transition-all">
+                <p className="text-slate-400 text-sm mb-2">Total Offers</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-3xl font-bold text-purple-400">
+                    {offers.length}
+                  </p>
+                  <p className="text-xs text-green-400 flex items-center">
+                    <span className="mr-1">↑</span> 2 new this week
+                  </p>
+                </div>
               </div>
-              <div className="bg-slate-900/50 p-4 rounded-lg">
-                <p className="text-slate-400 text-sm">Highest Offer</p>
-                <p className="text-2xl font-bold text-purple-400">
+              <div className="bg-slate-900/50 p-6 rounded-lg">
+                <p className="text-slate-400 text-sm mb-2">Highest Offer</p>
+                <p className="text-3xl font-bold text-purple-400">
                   $
                   {offers.length
                     ? Math.max(...offers.map((o) => o.amount)).toLocaleString()
                     : "0"}
                 </p>
               </div>
-              <div className="bg-slate-900/50 p-4 rounded-lg">
-                <p className="text-slate-400 text-sm">Average Offer</p>
-                <p className="text-2xl font-bold text-purple-400">
+              <div className="bg-slate-900/50 p-6 rounded-lg">
+                <p className="text-slate-400 text-sm mb-2">Average Offer</p>
+                <p className="text-3xl font-bold text-purple-400">
                   $
                   {offers.length
                     ? Math.round(
@@ -194,6 +210,16 @@ export default async function AdminPage({
                           offers.length
                       ).toLocaleString()
                     : "0"}
+                </p>
+              </div>
+              <div className="bg-slate-900/50 p-6 rounded-lg">
+                <p className="text-slate-400 text-sm mb-2">Total Visits</p>
+                <p className="text-3xl font-bold text-purple-400">
+                  {searchParams.domain === "all"
+                    ? await getTotalVisits(domainOffersKV, allDomains)
+                    : await domainOffersKV.getVisits(
+                        searchParams.domain || env.BASE_URL
+                      )}
                 </p>
               </div>
             </div>
@@ -219,7 +245,7 @@ export default async function AdminPage({
                   {offers.map((offer) => (
                     <tr
                       key={offer.timestamp}
-                      className="border-t border-slate-700"
+                      className="border-t border-slate-700 hover:bg-slate-800/30 transition-colors cursor-pointer"
                     >
                       <td className="p-4">
                         {new Date(offer.timestamp).toLocaleDateString()}
@@ -228,7 +254,16 @@ export default async function AdminPage({
                         {offer.domain}
                       </td>
                       <td className="p-4">{offer.email}</td>
-                      <td className="p-4">${offer.amount.toLocaleString()}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          ${offer.amount.toLocaleString()}
+                          {offer.amount >= 5000 && (
+                            <span className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded-full font-medium">
+                              High Value
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="p-4 truncate max-w-xs">
                         {offer.description}
                       </td>
@@ -244,6 +279,53 @@ export default async function AdminPage({
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-800/50 rounded-lg p-6 mt-6">
+          <h2 className="text-xl font-semibold text-slate-200 mb-4">
+            Domain Statistics
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-slate-200">
+              <thead className="text-sm text-slate-400">
+                <tr>
+                  <th className="p-4">Domain</th>
+                  <th className="p-4">Total Views</th>
+                  <th className="p-4">Last Offer</th>
+                  <th className="p-4">Avg Offer</th>
+                  <th className="p-4">Top Offer</th>
+                  <th className="p-4">Total Offers</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(await domainOffersKV.getDomainStats()).map((stat) => (
+                  <tr
+                    key={stat.domain}
+                    className="border-t border-slate-700 hover:bg-slate-800/30 transition-colors cursor-pointer"
+                  >
+                    <td className="p-4 font-medium text-purple-400">
+                      {stat.domain}
+                    </td>
+                    <td className="p-4">
+                      {stat.visits === 0 ? (
+                        <span className="text-slate-500">-</span>
+                      ) : (
+                        stat.visits.toLocaleString()
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {stat.lastOffer
+                        ? stat.lastOffer.toLocaleDateString()
+                        : "No offers"}
+                    </td>
+                    <td className="p-4">${stat.avgOffer.toLocaleString()}</td>
+                    <td className="p-4">${stat.topOffer.toLocaleString()}</td>
+                    <td className="p-4">{stat.offerCount.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

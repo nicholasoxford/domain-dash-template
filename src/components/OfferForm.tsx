@@ -35,17 +35,18 @@ const formSchema = z.object({
   offer: z.string().min(1, "Please enter an offer amount"),
   description: z
     .string()
-    .min(10, "Please provide more details about your vision")
     .max(500, "Description must be less than 500 characters"),
 });
 
 export function OfferForm({
   getSiteKey,
+  trackVisit,
 }: {
   getSiteKey: () => Promise<{
     TURNSTILE_SITE_KEY: string;
     BASE_URL: string;
   }>;
+  trackVisit: () => Promise<void>;
 }) {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileStatus, setTurnstileStatus] = useState<
@@ -111,6 +112,11 @@ export function OfferForm({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router, lastEscTime]);
+
+  useEffect(() => {
+    // Track visit when component mounts
+    trackVisit().catch(console.error);
+  }, [trackVisit]);
 
   const form = useForm({
     resolver: zodResolver(formSchema),

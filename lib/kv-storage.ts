@@ -61,7 +61,13 @@ export class DomainOffersKV {
   async getDomainOffers(domain: string) {
     const key = `offers:${domain}`;
     const offersJson = await this.kv.get(key);
-    return offersJson ? (JSON.parse(offersJson) as DomainOffer[]) : [];
+    const offers = offersJson ? (JSON.parse(offersJson) as DomainOffer[]) : [];
+
+    // Sort by timestamp, newest first
+    return offers.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
   }
 
   async deleteDomainOffers(domain: string) {
@@ -142,5 +148,59 @@ export class DomainOffersKV {
       message: "Domain initialized successfully",
       timestamp: new Date().toISOString(),
     };
+  }
+
+  async incrementVisits(domain: string) {
+    const key = `visits:${domain}`;
+    const currentVisits = parseInt((await this.kv.get(key)) || "0", 10);
+    const newVisits = currentVisits + 1;
+
+    await this.kv.put(key, newVisits.toString());
+
+    return {
+      domain,
+      visits: newVisits,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  async getVisits(domain: string) {
+    const key = `visits:${domain}`;
+    const visits = await this.kv.get(key);
+    return parseInt(visits || "0", 10);
+  }
+
+  async getDomainStats() {
+    const domains = await this.getAllDomains();
+    const stats = await Promise.all(
+      domains.map(async (domain) => {
+        const offers = await this.getDomainOffers(domain);
+        const visits = await this.getVisits(domain);
+
+        const lastOffer = offers[0]?.timestamp
+          ? new Date(offers[0].timestamp)
+          : null;
+        const avgOffer = offers.length
+          ? Math.round(
+              offers.reduce((sum, o) => sum + o.amount, 0) / offers.length
+            )
+          : 0;
+        const topOffer = offers.length
+          ? Math.max(...offers.map((o) => o.amount))
+          : 0;
+
+        return {
+          domain,
+          visits,
+          lastOffer,
+          avgOffer,
+          topOffer,
+          offerCount: offers.length,
+        };
+      })
+    );
+
+    // Sort by visits desc
+    return stats.sort((a, b) => b.visits - a.visits);
   }
 }
