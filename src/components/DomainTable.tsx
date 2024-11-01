@@ -60,8 +60,14 @@ export function DomainStatsTable({
   const handleSort = (field: SortField) => {
     setSort((prev) => ({
       field,
+      // If clicking the same field, cycle through: desc -> asc -> desc
+      // If clicking a new field, start with desc
       direction:
-        prev.field === field && prev.direction === "desc" ? "asc" : "desc",
+        prev.field === field
+          ? prev.direction === "desc"
+            ? "asc"
+            : "desc"
+          : "desc",
     }));
 
     setStats((prev) =>
