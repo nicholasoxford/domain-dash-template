@@ -14,7 +14,7 @@
     "dev:worker": "wrangler dev --port 8771",
     "preview:worker": "npm run build:worker && npm run dev:worker",
     "deploy:worker": "npm run build:worker && wrangler deploy",
-    "add-domain": "node scripts/add-domain.js",
+    "add-domains": "node scripts/add-domains.js",
     "deploy-all": "node scripts/deploy-all.js",
     "update-secrets": "node scripts/update-secrets.js"
   },
@@ -23,6 +23,7 @@
     "@marsidev/react-turnstile": "^1.0.2",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-slot": "^1.1.0",
+    "@supabase/supabase-js": "^2.46.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "framer-motion": "^11.11.10",

@@ -4,33 +4,11 @@ const path = require("path");
 const readline = require("readline");
 const chalk = require("chalk");
 
-// Add some styling helpers
-const styles = {
-  title: chalk.bold.blue,
-  success: chalk.bold.green,
-  error: chalk.bold.red,
-  warning: chalk.yellow,
-  info: chalk.cyan,
-  prompt: chalk.magenta,
-  highlight: chalk.bold.white,
-};
-
-// Create a better logger
-const logger = {
-  title: (msg) => console.log(styles.title(`\n🚀 ${msg}`)),
-  success: (msg) => console.log(styles.success(`✅ ${msg}`)),
-  error: (msg) => console.log(styles.error(`❌ ${msg}`)),
-  warning: (msg) => console.log(styles.warning(`⚠️  ${msg}`)),
-  info: (msg) => console.log(styles.info(`ℹ️  ${msg}`)),
-  divider: () =>
-    console.log(chalk.gray("\n─────────────────────────────────────\n")),
-};
-
 // Parse command line arguments
 const args = process.argv.slice(2);
-let kvIdArg, adminPasswordArg;
+let kvIdArg, adminPasswordArg, turnstileSiteKeyArg, turnstileSecretKeyArg;
 
-// Look for --kv-id and --admin-password flags
+// Look for flags
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--kv-id" && args[i + 1]) {
     kvIdArg = args[i + 1];
@@ -38,38 +16,22 @@ for (let i = 0; i < args.length; i++) {
   if (args[i] === "--admin-password" && args[i + 1]) {
     adminPasswordArg = args[i + 1];
   }
+  if (args[i] === "--turnstile-site-key" && args[i + 1]) {
+    turnstileSiteKeyArg = args[i + 1];
+  }
+  if (args[i] === "--turnstile-secret-key" && args[i + 1]) {
+    turnstileSecretKeyArg = args[i + 1];
+  }
 }
 
 let globalAdminPassword = adminPasswordArg || "";
+let globalTurnstileSiteKey = turnstileSiteKeyArg || "";
+let globalTurnstileSecretKey = turnstileSecretKeyArg || "";
 
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
-
-const log = console.log;
-
-const baseWranglerConfig = `#:schema node_modules/wrangler/config-schema.json
-name = "{name}"
-main = "../../.worker-next/index.mjs"
-
-compatibility_date = "2024-09-26"
-compatibility_flags = ["nodejs_compat"]
-
-minify = true
-
-assets = { directory = "../../.worker-next/assets", binding = "ASSETS" }
-
-routes = [{ pattern = "{domain}", custom_domain = true }]
-
-[vars]
-BASE_URL = "{domain}"
-TURNSTILE_SITE_KEY = "{turnstileSiteKey}"
-
-[[kv_namespaces]]
-binding = "kvcache"
-id = "{kvId}"
-`;
 
 async function promptUser(question) {
   return new Promise((resolve) => {
@@ -145,7 +107,7 @@ async function deployDomain(folderName, turnstileSecretKey, adminPassword) {
   }
 }
 
-async function createDomain() {
+async function deployAllDomains() {
   try {
     logger.title("Checking Wrangler authentication...");
     try {
@@ -215,25 +177,42 @@ async function createDomain() {
       logger.warning("Domain might already exist in KV storage, continuing...");
     }
 
-    // Get Turnstile keys
-    logger.info(
-      "Please visit https://dash.cloudflare.com/?to=/:account/turnstile"
-    );
-    logger.info(
-      "Either click 'Add site' to create a new widget for your domain"
-    );
-    logger.info("or click 'Settings' on an existing widget to get your keys.");
-
-    const turnstileSiteKey = await promptUser(
-      "\nEnter your Turnstile Site Key: "
-    );
-    const turnstileSecretKey = await promptUser(
-      "Enter your Turnstile Secret Key: "
-    );
+    // Get Turnstile keys if not provided as arguments
+    let turnstileSiteKey = globalTurnstileSiteKey;
+    let turnstileSecretKey = globalTurnstileSecretKey;
 
     if (!turnstileSiteKey || !turnstileSecretKey) {
-      logger.error("Both Turnstile Site Key and Secret Key are required!");
-      process.exit(1);
+      logger.info(
+        "Please visit https://dash.cloudflare.com/?to=/:account/turnstile"
+      );
+      logger.info(
+        "Either click 'Add site' to create a new widget for your domain"
+      );
+      logger.info(
+        "or click 'Settings' on an existing widget to get your keys."
+      );
+
+      if (!turnstileSiteKey) {
+        turnstileSiteKey = await promptUser(
+          "\nEnter your Turnstile Site Key: "
+        );
+      }
+      if (!turnstileSecretKey) {
+        turnstileSecretKey = await promptUser(
+          "Enter your Turnstile Secret Key: "
+        );
+      }
+
+      if (!turnstileSiteKey || !turnstileSecretKey) {
+        logger.error("Both Turnstile Site Key and Secret Key are required!");
+        process.exit(1);
+      }
+
+      // Store for reuse in subsequent domains
+      globalTurnstileSiteKey = turnstileSiteKey;
+      globalTurnstileSecretKey = turnstileSecretKey;
+    } else {
+      logger.info("Using provided Turnstile keys");
     }
 
     // Create folder name from domain
@@ -269,7 +248,7 @@ async function createDomain() {
     );
 
     if (addAnother.toLowerCase() === "y") {
-      await createDomain(); // Will reuse the same admin password
+      await deployAllDomains(); // Will reuse the same admin password
     } else {
       rl.close();
       logger.success("\nDone! All configurations have been created.");
@@ -292,14 +271,60 @@ if (args.includes("--help") || args.includes("-h")) {
 Usage: npm run create-domain [options]
 
 Options:
-  --kv-id <id>            KV namespace ID to use
-  --admin-password <pwd>   Admin password to use for all domains
-  -h, --help              Show this help message
+  --kv-id <id>                    KV namespace ID to use
+  --admin-password <pwd>          Admin password to use for all domains
+  --turnstile-site-key <key>      Turnstile site key to use for all domains
+  --turnstile-secret-key <key>    Turnstile secret key to use for all domains
+  -h, --help                      Show this help message
 
 Example:
-  npm run create-domain --kv-id abc123 --admin-password mypassword
+  npm run create-domain --kv-id abc123 --admin-password mypassword --turnstile-site-key key1 --turnstile-secret-key key2
   `);
   process.exit(0);
 }
 
-createDomain().catch(console.error);
+deployAllDomains().catch(console.error);
+
+// Add some styling helpers
+const styles = {
+  title: chalk.bold.blue,
+  success: chalk.bold.green,
+  error: chalk.bold.red,
+  warning: chalk.yellow,
+  info: chalk.cyan,
+  prompt: chalk.magenta,
+  highlight: chalk.bold.white,
+};
+
+// Create a better logger
+const logger = {
+  title: (msg) => console.log(styles.title(`\n🚀 ${msg}`)),
+  success: (msg) => console.log(styles.success(`✅ ${msg}`)),
+  error: (msg) => console.log(styles.error(`❌ ${msg}`)),
+  warning: (msg) => console.log(styles.warning(`⚠️  ${msg}`)),
+  info: (msg) => console.log(styles.info(`ℹ️  ${msg}`)),
+  divider: () =>
+    console.log(chalk.gray("\n─────────────────────────────────────\n")),
+};
+
+const baseWranglerConfig = `#:schema node_modules/wrangler/config-schema.json
+name = "{name}"
+main = "../../.worker-next/index.mjs"
+
+compatibility_date = "2024-09-26"
+compatibility_flags = ["nodejs_compat"]
+
+minify = true
+
+assets = { directory = "../../.worker-next/assets", binding = "ASSETS" }
+
+routes = [{ pattern = "{domain}", custom_domain = true }]
+
+[vars]
+BASE_URL = "{domain}"
+TURNSTILE_SITE_KEY = "{turnstileSiteKey}"
+
+[[kv_namespaces]]
+binding = "kvcache"
+id = "{kvId}"
+`;

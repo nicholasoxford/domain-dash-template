@@ -231,3 +231,20 @@ export type DomainStat = {
   topOffer: number;
   offerCount: number;
 };
+
+export class DomainConfigKV {
+  private kv: KVNamespace;
+
+  constructor(kv: KVNamespace) {
+    this.kv = kv;
+  }
+
+  async getDomainConfig(domain: string): Promise<DomainConfig | null> {
+    const config = await this.kv.get(`config:${domain}`, { type: "json" });
+    return config as DomainConfig | null;
+  }
+
+  async setDomainConfig(domain: string, config: DomainConfig) {
+    await this.kv.put(`config:${domain}`, JSON.stringify(config));
+  }
+}

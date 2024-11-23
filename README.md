@@ -9,77 +9,83 @@ Deploy "Domain For Sale" pages to your unused Cloudflare domains with a built-in
 - One or more domains on Cloudflare
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/) installed
 
-## Setup
+## Quick Start
 
-1. Clone this repository
+1. Clone and install
 
 ```bash
 git clone [repository-url]
 cd [repository-name]
-```
-
-2. Install dependencies
-
-```bash
 npm install
 ```
 
-3. Login to Wrangler
+2. Login to Wrangler
 
 ```bash
 npx wrangler login
 ```
 
-4. Set up Turnstile
+3. Set up Turnstile
+
    - Visit [Cloudflare Dashboard](https://dash.cloudflare.com/?to=/:account/turnstile)
-   - Click "Add Site" to create a new widget
+   - Create a new widget or use an existing one
    - Note down both the Site Key and Secret Key
 
-## Deploying to Your Domains
-
-Run the domain creation script:
+4. Deploy your first domain
 
 ```bash
 npm run create-domain
 ```
 
-The script will guide you through:
+## Command Line Options
 
-1. Setting up an admin password (for accessing the admin dashboard)
-2. Creating or using an existing KV namespace
-3. Configuring your domain
-4. Setting up Turnstile protection
-5. Deploying to Cloudflare Workers
-
-### Optional: Batch Setup
-
-You can speed up deployment for multiple domains by providing the KV namespace ID and admin password as arguments:
+Speed up deployment by providing configuration options:
 
 ```bash
-npm run create-domain --kv-id your-kv-id --admin-password your-password
+npm run create-domain \
+  --kv-id your-kv-id \
+  --admin-password your-password \
+  --turnstile-site-key your-site-key \
+  --turnstile-secret-key your-secret-key
 ```
 
-## Post-Deployment
-
-After deployment:
-
-- Your domain will show a "For Sale" page
-- Potential buyers can submit offers through the protected form
-- Access the admin dashboard at `https://your-domain.com/admin`
-- Review and manage offers through the admin dashboard
+| Option                   | Description                             |
+| ------------------------ | --------------------------------------- |
+| `--kv-id`                | Your Cloudflare KV namespace ID         |
+| `--admin-password`       | Password for accessing admin dashboards |
+| `--turnstile-site-key`   | Cloudflare Turnstile Site Key           |
+| `--turnstile-secret-key` | Cloudflare Turnstile Secret Key         |
 
 ## Managing Multiple Domains
 
-- All domains can share the same KV namespace and admin password
-- Each domain gets its own configuration in the `domains/` directory
-- Offers for each domain are stored separately in KV storage
+- All domains can share the same:
+  - KV namespace
+  - Admin password
+  - Turnstile configuration
+- Each domain gets its own configuration in `domains/`
+- Run the script multiple times to add more domains
 
-## Updating Admin Password
+## Post-Deployment
 
-To change the admin password for a specific domain:
+After successful deployment:
+
+1. Access your domain's sale page at `https://your-domain.com`
+2. View the admin dashboard at `https://your-domain.com/admin`
+3. Manage offers through the dashboard
+4. Monitor visit statistics
+
+## Updating Configuration
+
+### Change Admin Password
 
 ```bash
 npx wrangler secret put ADMIN_PASSWORD -c domains/your-domain/wrangler.toml
+```
+
+### Update Turnstile Secret
+
+```bash
+npx wrangler secret put TURNSTILE_SECRET_KEY -c domains/your-domain/wrangler.toml
 ```
 
 ## Notes
@@ -87,4 +93,8 @@ npx wrangler secret put ADMIN_PASSWORD -c domains/your-domain/wrangler.toml
 - DNS propagation may take up to 48 hours
 - Turnstile protection helps prevent spam submissions
 - All offers are stored in Cloudflare KV storage
-- The admin dashboard is protected by the password you set during setup
+- The admin dashboard shows:
+  - Total offers
+  - Highest offer
+  - Average offer
+  - Visit statistics

@@ -12,10 +12,7 @@ minify = true
 assets = { directory = "../../.worker-next/assets", binding = "ASSETS" }
 
 
-
-routes = [
-   { pattern = "vecstack.com", custom_domain = true }
-]
+routes = [{ pattern = "vecstack.com", custom_domain = true }]
 
 [vars]
 BASE_URL = "vecstack.com"
